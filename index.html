@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>健身動作辨識</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    #preview { max-width: 100%; margin-top: 10px; }
+    #result { margin-top: 20px; font-size: 18px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>📷 拍照或上傳圖片</h2>
+  <input type="file" accept="image/*" capture="environment" id="fileInput">
+  <br>
+  <img id="preview" />
+  <div id="result">結果：尚未辨識</div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const preview = document.getElementById('preview');
+    const resultDiv = document.getElementById('result');
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      // 預覽圖片
+      const reader = new FileReader();
+      reader.onload = async function () {
+        const base64Image = reader.result;
+
+        preview.src = base64Image;
+
+        // 傳送到後端
+        try {
+          const response = await fetch('https://your-backend-api.com/predict', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ image: base64Image })
+          });
+
+          const result = await response.json();
+          if (result.class_name) {
+            resultDiv.textContent = 結果：${result.class_name}（信心值 ${Math.round(result.confidence * 100)}%）;
+          } else if (result.error) {
+            resultDiv.textContent = 錯誤：${result.error};
+          }
+        } catch (err) {
+          resultDiv.textContent = ⚠️ 發生錯誤：${err};
+        }
+      };
+      reader.readAsDataURL(file); // 將圖片轉成 base64
+    });
+  </script>
+</body>
+</html>
