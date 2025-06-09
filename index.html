@@ -7,6 +7,23 @@
     body { font-family: sans-serif; padding: 20px; }
     #preview { max-width: 100%; margin-top: 10px; }
     #result { margin-top: 20px; font-size: 18px; font-weight: bold; }
+
+    /* 轉圈動畫 */
+    .loader {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -32,8 +49,8 @@
       };
       reader.readAsDataURL(file);
 
-      // 顯示辨識中
-      resultDiv.textContent = '辨識中，請稍候...';
+      // 顯示辨識中並加上轉圈動畫
+      resultDiv.innerHTML = '辨識中，請稍候... <span class="loader"></span>';
 
       // 建立 FormData
       const formData = new FormData();
