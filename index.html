@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <title>健身動作辨識</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    #preview { max-width: 100%; margin-top: 10px; }
+    body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: auto; }
+    #preview { max-width: 100%; margin-top: 10px; border: 1px solid #ccc; border-radius: 8px; }
     #result { margin-top: 20px; font-size: 18px; font-weight: bold; }
+
     .loader {
       border: 6px solid #f3f3f3;
       border-top: 6px solid #3498db;
@@ -18,9 +19,14 @@
       vertical-align: middle;
       margin-left: 10px;
     }
+
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
+    }
+
+    input[type="file"] {
+      margin-top: 10px;
     }
   </style>
 </head>
@@ -28,7 +34,7 @@
   <h2>📷 拍照或上傳圖片</h2>
   <input type="file" accept="image/*" capture="environment" id="fileInput" />
   <br />
-  <img id="preview" />
+  <img id="preview" alt="圖片預覽" />
   <div id="result">結果：尚未辨識</div>
 
   <script>
@@ -40,14 +46,17 @@
       const file = fileInput.files[0];
       if (!file) return;
 
+      // 預覽圖片
       const reader = new FileReader();
       reader.onload = () => {
         preview.src = reader.result;
       };
       reader.readAsDataURL(file);
 
-      resultDiv.innerHTML = '辨識中，請稍候... <span class="loader"></span>';
+      // 顯示辨識中動畫
+      resultDiv.innerHTML = '🔍 辨識中，請稍候... <span class="loader"></span>';
 
+      // 準備圖片資料
       const formData = new FormData();
       formData.append('image', file);
 
@@ -57,15 +66,20 @@
           body: formData
         });
 
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`伺服器回應錯誤 (${response.status}): ${errorText}`);
+        }
+
         const result = await response.json();
 
         if (result.class_name) {
-          resultDiv.textContent = `結果：${result.class_name}（信心值 ${Math.round(result.confidence * 100)}%）`;
+          resultDiv.textContent = `✅ 結果：${result.class_name}（信心值 ${Math.round(result.confidence * 100)}%）`;
         } else {
           resultDiv.textContent = `❌ 錯誤：${result.error || '未知錯誤'}`;
         }
       } catch (err) {
-        console.error("Fetch 錯誤：", err); // ✅ 印出詳細錯誤
+        console.error("Fetch 錯誤：", err);
         resultDiv.textContent = `⚠️ 發生錯誤：${err.message}`;
       }
     });
