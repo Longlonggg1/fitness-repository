@@ -7,8 +7,6 @@
     body { font-family: sans-serif; padding: 20px; }
     #preview { max-width: 100%; margin-top: 10px; }
     #result { margin-top: 20px; font-size: 18px; font-weight: bold; }
-
-    /* 轉圈動畫 */
     .loader {
       border: 6px solid #f3f3f3;
       border-top: 6px solid #3498db;
@@ -42,17 +40,14 @@
       const file = fileInput.files[0];
       if (!file) return;
 
-      // 預覽圖片
       const reader = new FileReader();
       reader.onload = () => {
         preview.src = reader.result;
       };
       reader.readAsDataURL(file);
 
-      // 顯示辨識中並加上轉圈動畫
       resultDiv.innerHTML = '辨識中，請稍候... <span class="loader"></span>';
 
-      // 建立 FormData
       const formData = new FormData();
       formData.append('image', file);
 
@@ -70,7 +65,8 @@
           resultDiv.textContent = `❌ 錯誤：${result.error || '未知錯誤'}`;
         }
       } catch (err) {
-        resultDiv.textContent = `⚠️ 發生錯誤：${err}`;
+        console.error("Fetch 錯誤：", err); // ✅ 印出詳細錯誤
+        resultDiv.textContent = `⚠️ 發生錯誤：${err.message}`;
       }
     });
   </script>
