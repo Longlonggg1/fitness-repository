@@ -1,105 +1,72 @@
-import os, base64, io, gc, traceback
-import numpy as np
-from PIL import Image
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.image import img_to_array
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>健身動作識別</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 20px; }
+    #preview { max-width: 300px; margin-top: 10px; border-radius: 10px; box-shadow: 0 0 10px #ccc; }
+    .result { margin-top: 20px; font-size: 20px; font-weight: bold; color: #2c3e50; }
+    button { padding: 10px 20px; font-size: 16px; margin-top: 10px; }
+  </style>
+</head>
+<body>
 
-# 嘗試載入 gdown，自動下載模型用
-try:
-    import gdown
-except ImportError:
-    gdown = None
+  <h1>🏋️‍♀️ 健身動作識別</h1>
 
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+  <input type="file" accept="image/*" id="imageInput" />
+  <br />
+  <img id="preview" src="" alt="預覽圖" />
+  <br />
+  <button onclick="predict()">🔍 預測</button>
 
-MODEL_URL = "https://drive.google.com/uc?export=download&id=1oIwiQ60jPQX0n75Tl_wCgsYyJU7_j_-M"
-MODEL_PATH = "fitness_cnn_model.keras"
-CLASS_NAMES = ['伏地挺身', '仰臥起坐', '側棒式', '深蹲']
-IMG_SIZE = (96, 96)  # ✅ 縮小尺寸更省記憶體
+  <div class="result" id="result">請選擇圖片</div>
 
-model = None  # ✅ 延遲載入模型
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const preview = document.getElementById('preview');
+    let base64Image = "";
 
+    imageInput.addEventListener('change', () => {
+      const file = imageInput.files[0];
+      if (!file) return;
 
-def load_model_once():
-    global model
-    if model is None:
-        print("🚀 載入模型中...")
-        model = load_model(MODEL_PATH)
-        print("✅ 模型已載入")
+      const reader = new FileReader();
+      reader.onload = () => {
+        base64Image = reader.result;
+        preview.src = base64Image;
+        document.getElementById('result').innerText = "✅ 圖片已選擇，點擊預測";
+      };
+      reader.readAsDataURL(file);
+    });
 
+    async function predict() {
+      if (!base64Image) {
+        alert("請先選擇圖片");
+        return;
+      }
 
-def download_model_if_missing():
-    if not os.path.exists(MODEL_PATH):
-        print("🔽 模型不存在，嘗試下載中...")
-        try:
-            if gdown:
-                gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
-            else:
-                import requests
-                response = requests.get(MODEL_URL)
-                response.raise_for_status()
-                with open(MODEL_PATH, "wb") as f:
-                    f.write(response.content)
-            print("✅ 模型下載完成！")
-        except Exception as e:
-            print(f"❌ 模型下載失敗：{e}")
-            raise RuntimeError("模型下載失敗，無法啟動伺服器")
+      document.getElementById('result').innerText = "⏳ 預測中...";
 
+      try {
+        const res = await fetch('http://localhost:5000/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64Image })
+        });
 
-@app.route('/')
-def home():
-    return '🏋️ 健身動作識別後端已啟動！'
+        const data = await res.json();
+        if (data.error) {
+          document.getElementById('result').innerText = "❌ 錯誤：" + data.error;
+        } else {
+          document.getElementById('result').innerText = `💪 動作：${data.class_name}（信心：${(data.confidence * 100).toFixed(2)}%）`;
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('result').innerText = "❌ 發送失敗，請確認後端是否啟動";
+      }
+    }
+  </script>
 
-
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        download_model_if_missing()
-        load_model_once()
-
-        # 圖片來源處理
-        if 'image' in request.files:
-            file = request.files['image']
-            if file.mimetype not in ['image/jpeg', 'image/png']:
-                return jsonify({'error': '僅支援 JPG/PNG 格式圖片'}), 400
-            image = Image.open(file).convert("RGB")
-        elif request.is_json:
-            data = request.get_json()
-            base64_str = data.get('image', '')
-            if ',' in base64_str:
-                base64_str = base64_str.split(',')[-1]
-            image = Image.open(io.BytesIO(base64.b64decode(base64_str))).convert("RGB")
-        else:
-            return jsonify({'error': '請提供圖片（檔案或 base64）'}), 400
-
-        # 圖片預處理
-        image = image.resize(IMG_SIZE)
-        arr = img_to_array(image) / 255.0
-        arr = np.expand_dims(arr, axis=0)
-
-        # 預測
-        preds = model.predict(arr, verbose=0)[0]
-        class_index = int(np.argmax(preds))
-        class_name = CLASS_NAMES[class_index]
-        confidence = float(preds[class_index])
-
-        # ✅ 手動釋放記憶體
-        del image, arr, preds
-        gc.collect()
-
-        return jsonify({
-            'class_name': class_name,
-            'confidence': confidence
-        })
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
-
-
-if __name__ == '__main__':
-    download_model_if_missing()
-    app.run(host='0.0.0.0', port=5000)
+</body>
+</html>
